@@ -17,6 +17,7 @@ class DocumentsViewController: UIViewController {
     private var documentsDirectory: URL {
         return fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
+    private let settingsManager = SettingsManager.shared
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -24,6 +25,13 @@ class DocumentsViewController: UIViewController {
         setupNavigationBar()
         setupTableView()
         loadFiles()
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(sortingChanged),
+            name: .sortingChanged,
+            object: nil
+        )
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -31,9 +39,13 @@ class DocumentsViewController: UIViewController {
         loadFiles()
     }
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     // MARK: - Setup
     private func setupNavigationBar() {
-        title = "Documents"
+        title = "Файлы"
         
         let addButton = UIBarButtonItem(
             title: "Добавить фотографию",
@@ -70,7 +82,14 @@ class DocumentsViewController: UIViewController {
             files = contents.filter { url in
                 let uti = UTType(filenameExtension: url.pathExtension)
                 return uti?.conforms(to: .image) == true
-            }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+            }
+            
+            // Сортировка в зависимости от настроек
+            if settingsManager.isAlphabeticalSort {
+                files.sort { $0.lastPathComponent < $1.lastPathComponent }
+            } else {
+                files.sort { $0.lastPathComponent > $1.lastPathComponent }
+            }
             
             tableView.reloadData()
         } catch {
@@ -114,6 +133,10 @@ class DocumentsViewController: UIViewController {
         imagePicker.sourceType = .photoLibrary
         imagePicker.mediaTypes = [UTType.image.identifier]
         present(imagePicker, animated: true)
+    }
+    
+    @objc private func sortingChanged() {
+        loadFiles()
     }
     
     // MARK: - Helpers
